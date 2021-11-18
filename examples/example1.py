@@ -1,5 +1,4 @@
-from ESCPOS import *
-from math import *
+from ESCPOS import escGenerator
 
 a = escGenerator()
 

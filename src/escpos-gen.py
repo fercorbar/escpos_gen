@@ -168,8 +168,7 @@ class escGenerator:
         if border_right: result += table_styles[style][r]
         return result
 
-
-    def table_normal(self, data, options):
+    def table(self, data, options):
         self.reset()
         self.commands.append(b'\x1c\x2e')
         self.commands.append(b'\x1b\x74\x02')
