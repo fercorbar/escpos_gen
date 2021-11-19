@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import struct
 from math import *
+import typing
 class escGenerator:
 
     def __init__(self, paper_size="80mm"):
@@ -117,10 +118,10 @@ class escGenerator:
             return False, str(e)
         return True
 
-    def set_table_row(self, isHeader, data, columns, style = "blank-line", separate = True, border_left = False, border_right = False, ):
+    def set_table_row(self, is_header: bool, data: typing.List[typing.List[str]], columns, style = "blank-line", separate = True, border_left = False, border_right = False, ):
         result = b''
         v = 'V'
-        alignKey = 'header_align' if isHeader else 'data_align'
+        alignKey = 'header_align' if is_header else 'data_align'
 
         rowLines = []
         for col in range(len(columns)):
@@ -132,11 +133,11 @@ class escGenerator:
             if border_left: result += table_styles[style][v]
             #columns
             for col in range(len(columns)):
-                textComplete = columns[col]['text'] if isHeader else data[col]
+                textComplete = columns[col]['text'] if is_header else data[col]
                 # text = textComplete[]
                 width = columns[col]['width']
                 text = textComplete[(l*width):((l*width) + width)]
-                if 'data_fill_car' in columns[col] and not isHeader:
+                if 'data_fill_car' in columns[col] and not is_header:
                     if rowLines[col] == 1:
                         text = ('{:' + columns[col]['data_fill_car'] + alignments[columns[col][alignKey]] + str(columns[col]['width']) + '}').format(text)
 
@@ -168,7 +169,7 @@ class escGenerator:
         if border_right: result += table_styles[style][r]
         return result
 
-    def table(self, data, options):
+    def table(self, data: typing.List[typing.List[str]], options: typing.Dict) -> None:
         self.reset()
         self.commands.append(b'\x1c\x2e')
         self.commands.append(b'\x1b\x74\x02')

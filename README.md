@@ -1,4 +1,4 @@
-# escpos-gen
+# escpos_gen
 
 ## Description
 Generator of printable binary files with helper methods based on ESC/POS protocol.
@@ -19,13 +19,13 @@ Supports spanish characters.
 
 Run the following to install:
 ```python
-pip install escpos-gen
+pip install escpos_gen
 ```
 
 ## Usage
 
 ```python
-from escpos-gen import escGenerator
+from escpos_gen import escGenerator
 a = escGenerator()
 
 options = {
