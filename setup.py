@@ -4,10 +4,10 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setup(
-    name='escpos_gen',
+    name='escposgen',
     version='0.0.2',
     description='Generator of printable binary files with helper methods based on ESC/POS protocol',
-    py_modules=["escpos_gen"],
+    py_modules=["escposgen"],
     package_dir={'': 'src'},
     classifiers=[
         "Programming Language :: Python :: 3",
@@ -18,7 +18,7 @@ setup(
     ],
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url='https://github.com/fercorbar/escpos_gen',
+    url='https://github.com/fercorbar/escposgen',
     author='Fernando Córdova',
     author_email='fernando@cbin.mx',
     
