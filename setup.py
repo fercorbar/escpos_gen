@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name='escpos_gen',
-    version='0.0.1',
+    version='0.0.2',
     description='Generator of printable binary files with helper methods based on ESC/POS protocol',
     py_modules=["escpos_gen"],
     package_dir={'': 'src'},
