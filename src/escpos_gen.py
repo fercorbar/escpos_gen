@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import struct
 from math import *
-import typing
+import PIL
+
 class escGenerator:
 
     def __init__(self, paper_size="80mm"):
@@ -94,14 +95,24 @@ class escGenerator:
         comando = comandos[str(rep)]
         self.commands.append(comando)
 
-    def print_image(self, image):
-        image_data = ''.join((
-            '\x1d\x76\x30\x00',
-            struct.pack('2B', image.size[0] / 8 % 256, image.size[0] / 8 / 256),
-            struct.pack('2B', image.size[1] % 256, image.size[1] / 256),
-            image.tobytes()
-            ))
-        self.commands.append(image_data)
+    def print_image(self, route_image, image_size):
+            try:
+                im = PIL.Image.open(f'{route_image}')
+            except Exception as e:
+                im = None
+
+            if im is not None:
+                basewidth = self.max_line_len * 11
+                baseheight = basewidth * 1
+                im = resize_image(im, image_size, basewidth,baseheight)
+
+                image_data = b''.join((
+                    b'\x1d\x76\x30\x00',
+                    struct.pack('2B', int(im.size[0] / 8 % 256), int(im.size[0] / 8 / 256)),
+                    struct.pack('2B', int(im.size[1] % 256), int(im.size[1] / 256)),
+                    im.tobytes(),
+                ))
+                self.commands.append(image_data)
 
     def test(self):
         try:
@@ -118,10 +129,10 @@ class escGenerator:
             return False, str(e)
         return True
 
-    def set_table_row(self, is_header: bool, data: typing.List[typing.List[str]], columns, style = "blank-line", separate = True, border_left = False, border_right = False, ):
+    def set_table_row(self, isHeader, data, columns, style = "blank-line", separate = True, border_left = False, border_right = False, ):
         result = b''
         v = 'V'
-        alignKey = 'header_align' if is_header else 'data_align'
+        alignKey = 'header_align' if isHeader else 'data_align'
 
         rowLines = []
         for col in range(len(columns)):
@@ -133,11 +144,11 @@ class escGenerator:
             if border_left: result += table_styles[style][v]
             #columns
             for col in range(len(columns)):
-                textComplete = columns[col]['text'] if is_header else data[col]
+                textComplete = columns[col]['text'] if isHeader else data[col]
                 # text = textComplete[]
                 width = columns[col]['width']
                 text = textComplete[(l*width):((l*width) + width)]
-                if 'data_fill_car' in columns[col] and not is_header:
+                if 'data_fill_car' in columns[col] and not isHeader:
                     if rowLines[col] == 1:
                         text = ('{:' + columns[col]['data_fill_car'] + alignments[columns[col][alignKey]] + str(columns[col]['width']) + '}').format(text)
 
@@ -169,7 +180,8 @@ class escGenerator:
         if border_right: result += table_styles[style][r]
         return result
 
-    def table(self, data: typing.List[typing.List[str]], options: typing.Dict) -> None:
+
+    def table_normal(self, data, options):
         self.reset()
         self.commands.append(b'\x1c\x2e')
         self.commands.append(b'\x1b\x74\x02')
@@ -223,7 +235,7 @@ class escGenerator:
 
         # column headers
         if options['show_headers']:
-            col_headers = self.set_table_row(True, data, columns, style, options['separate_cols'], options['border_left'], options['border_right'])
+            col_headers = self.set_table_row(True , data, columns, style, options['separate_cols'], options['border_left'], options['border_right'])
             self.commands.append(col_headers)
             if options['separate_header']:
                 if options['border_top']:
@@ -236,6 +248,7 @@ class escGenerator:
 
         # data
         if options['show_data']:
+            # print(f'columns----------------{columns}')
             for i in range(len(data)):
                 line = self.set_table_row(False, data[i], columns, style, options['separate_cols'], options['border_left'], options['border_right'])
                 self.commands.append(line)
@@ -265,7 +278,7 @@ class escGenerator:
         self.commands.append(b'\x1b\x33\x3c')
         self.commands.append(b'\x1b\x02')
         self.reset()
-        self.cut_paper()
+        #self.cut_paper()
 
     def test(self):
         self.commands.append(b'\x1c\x2e')
@@ -277,7 +290,7 @@ class escGenerator:
         self.commands.append(b'\x1b\x64\x02')
         # self.reset()
         self.print_string('ABCD')
-        self.cut_paper()
+        #self.cut_paper()
         
 alignments = {
     "center": "^",
@@ -463,3 +476,54 @@ options = {
         }
     ]
 }
+
+def resize_image(im, image_size, basewidth, baseheight):
+
+        if im is not None:
+
+            size_factor = {"lg": 1, "md": .75, "sm": .5}
+
+            wdelta = basewidth - im.size[0]
+            hdelta = baseheight - im.size[1]
+
+            #* No overflow and exact max size
+            if im.size[0] == basewidth and im.size[1] == baseheight:
+                percent = baseheight / im.size[1]
+
+            #* Width and height overflow   
+            elif im.size[0] > basewidth and im.size[1] > baseheight:
+                if abs(hdelta) > abs(wdelta):
+                    percent = baseheight / im.size[1] 
+                else:
+                    percent = basewidth / im.size[0]
+
+            #* No overflow and more small
+            elif im.size[0] < basewidth and im.size[1] < baseheight:
+                if abs(hdelta) < abs(wdelta):
+                    percent = baseheight / im.size[1]
+                else:
+                    percent = basewidth / im.size[0]
+
+            #* Only Width overflow
+            elif im.size[0] > basewidth and im.size[1] <= baseheight :
+                percent = basewidth / im.size[0]
+
+            #* Only Height overflow
+            elif im.size[0] <= basewidth and im.size[1] > baseheight:
+                percent = baseheight / im.size[1]
+            
+            
+            new_width = int(int(im.size[0] * percent) * (size_factor[f'{image_size}']))
+            new_height = int(int(im.size[1] * percent) * (size_factor[f'{image_size}']))
+
+
+            im = im.resize((new_width, new_height), PIL.Image.ANTIALIAS)
+            if im.size[0] % 8:
+                im2 = PIL.Image.new('1', (im.size[0] + 8 - im.size[0] % 8,im.size[1]), 'white')
+                im2.paste(im,(0, 0))
+                im = im2
+
+            im = PIL.ImageOps.invert(im.convert('L'))
+            im = im.convert('1')
+
+        return im
