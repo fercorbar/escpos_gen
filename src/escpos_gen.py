@@ -235,7 +235,10 @@ class escGenerator:
 
         # column headers
         if options['show_headers']:
-            col_headers = self.set_table_row(True , data, columns, style, options['separate_cols'], options['border_left'], options['border_right'])
+            headers=[]
+            for column in columns:
+                headers.append(column['text'])
+            col_headers = self.set_table_row(True , headers, columns, style, options['separate_cols'], options['border_left'], options['border_right'])
             self.commands.append(col_headers)
             if options['separate_header']:
                 if options['border_top']:
