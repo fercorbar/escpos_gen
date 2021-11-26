@@ -144,7 +144,7 @@ class escGenerator:
             if border_left: result += table_styles[style][v]
             #columns
             for col in range(len(columns)):
-                textComplete = columns[col]['text'] if isHeader else data[col]
+                textComplete = data[col]
                 # text = textComplete[]
                 width = columns[col]['width']
                 text = textComplete[(l*width):((l*width) + width)]
