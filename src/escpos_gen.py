@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import struct
 from math import *
-import PIL
+from PIL import Image, ImageOps
 
 class escGenerator:
 
@@ -97,7 +97,7 @@ class escGenerator:
 
     def print_image(self, route_image, image_size):
             try:
-                im = PIL.Image.open(f'{route_image}')
+                im = Image.open(f'{route_image}')
             except Exception as e:
                 im = None
 
@@ -520,13 +520,13 @@ def resize_image(im, image_size, basewidth, baseheight):
             new_height = int(int(im.size[1] * percent) * (size_factor[f'{image_size}']))
 
 
-            im = im.resize((new_width, new_height), PIL.Image.ANTIALIAS)
+            im = im.resize((new_width, new_height), Image.ANTIALIAS)
             if im.size[0] % 8:
-                im2 = PIL.Image.new('1', (im.size[0] + 8 - im.size[0] % 8,im.size[1]), 'white')
+                im2 = Image.new('1', (im.size[0] + 8 - im.size[0] % 8,im.size[1]), 'white')
                 im2.paste(im,(0, 0))
                 im = im2
 
-            im = PIL.ImageOps.invert(im.convert('L'))
+            im = ImageOps.invert(im.convert('L'))
             im = im.convert('1')
 
         return im
