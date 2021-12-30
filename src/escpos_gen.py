@@ -1,7 +1,13 @@
-# -*- coding: utf-8 -*-
 import struct
 from math import *
-from PIL import Image, ImageOps
+from PIL import Image
+import PIL.ImageOps
+import requests, os, logging
+#Configuracion de logging
+log = logging.getLogger('radmin_info')
+console = logging.StreamHandler()
+log.addHandler(console)
+log.setLevel(logging.INFO)
 
 class escGenerator:
 
@@ -102,9 +108,15 @@ class escGenerator:
                 im = None
 
             if im is not None:
-                basewidth = self.max_line_len * 11
-                baseheight = basewidth * 1
-                im = resize_image(im, image_size, basewidth,baseheight)
+                ## RESIZE ANY IMAGE ALEX
+                im = image_white(im)
+                ## END RESIZE ANY IMAGE ALEX
+                basewidth = self.max_line_len * 9
+                wpercent  = (basewidth / float(im.size[0]))
+                hsize = int((float(im.size[1]) * float(wpercent)))
+                ############################ ALEX
+                im = resize_image(im, image_size, basewidth, hsize) 
+                ############################## ALEX END
 
                 image_data = b''.join((
                     b'\x1d\x76\x30\x00',
@@ -179,7 +191,6 @@ class escGenerator:
                     result += table_styles[style][j]
         if border_right: result += table_styles[style][r]
         return result
-
 
     def table(self, data, options):
         self.reset()
@@ -480,53 +491,62 @@ options = {
     ]
 }
 
-def resize_image(im, image_size, basewidth, baseheight):
+def image_white(im):
+    im = im.convert("RGBA")
+    datas = im.getdata()
+    newData = []
+    for item in datas:
+        if item[3] == 0:
+            newData.append((255, 255, 255, 255))
+        else:
+            newData.append(item)
 
-        if im is not None:
+    im.putdata(newData)
 
-            size_factor = {"lg": 1, "md": .75, "sm": .5}
+    basewidth = 480
+    wpercent = (basewidth / float(im.size[0]))
+    hsize = int((float(im.size[1]) * float(wpercent)))
+    im = im.resize((basewidth, hsize), Image.ANTIALIAS)
+    return im
 
-            wdelta = basewidth - im.size[0]
-            hdelta = baseheight - im.size[1]
+def resize_image(im, image_size, basewidth, hsize):
+    intSize = 0
+    if image_size == 'sm':
+        intSize = 200
+    if image_size == 'md':
+        intSize = 100
+    if image_size == 'lg':
+        intSize = 50
 
-            #* No overflow and exact max size
-            if im.size[0] == basewidth and im.size[1] == baseheight:
-                percent = baseheight / im.size[1]
-
-            #* Width and height overflow   
-            elif im.size[0] > basewidth and im.size[1] > baseheight:
-                if abs(hdelta) > abs(wdelta):
-                    percent = baseheight / im.size[1] 
-                else:
-                    percent = basewidth / im.size[0]
-
-            #* No overflow and more small
-            elif im.size[0] < basewidth and im.size[1] < baseheight:
-                if abs(hdelta) < abs(wdelta):
-                    percent = baseheight / im.size[1]
-                else:
-                    percent = basewidth / im.size[0]
-
-            #* Only Width overflow
-            elif im.size[0] > basewidth and im.size[1] <= baseheight :
-                percent = basewidth / im.size[0]
-
-            #* Only Height overflow
-            elif im.size[0] <= basewidth and im.size[1] > baseheight:
-                percent = baseheight / im.size[1]
+    if im.size[1] > basewidth and im.size[0] < basewidth:
+        if image_size == 'sm':
+            intSize = 600
+        if image_size == 'md':
+            intSize = 300
+        if image_size == 'lg':
+            intSize = 50
+    if im.size[1] > basewidth or im.size[0] > basewidth:
+        if image_size == 'sm':
+            intSize = 600
+        if image_size == 'md':
+            intSize = 300
+        if image_size == 'lg':
+            intSize = 50
             
-            
-            new_width = int(int(im.size[0] * percent) * (size_factor[f'{image_size}']))
-            new_height = int(int(im.size[1] * percent) * (size_factor[f'{image_size}']))
+    MaxHeight = intSize
+    porcentajeHeight =  float(22 * MaxHeight / hsize)
+    basewidth = int(basewidth - (basewidth * (porcentajeHeight * 0.01)))
 
+    hsize = int(hsize - (hsize * (porcentajeHeight * 0.01)))
 
-            im = im.resize((new_width, new_height), Image.ANTIALIAS)
-            if im.size[0] % 8:
-                im2 = Image.new('1', (im.size[0] + 8 - im.size[0] % 8,im.size[1]), 'white')
-                im2.paste(im,(0, 0))
-                im = im2
+    im = im.resize((basewidth, hsize), Image.ANTIALIAS) # Aqui se pierde la calidad
 
-            im = ImageOps.invert(im.convert('L'))
-            im = im.convert('1')
+    if im.size[0] % 8:
+        im2 = Image.new('1', (im.size[0] + 8 - im.size[0] % 8,im.size[1]), 'white')
+        im2.paste(im,(0, 0))
+        im = im2
 
-        return im
+    im = PIL.ImageOps.invert(im.convert('L'))
+    im = im.convert('1')
+
+    return im
