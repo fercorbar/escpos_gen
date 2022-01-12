@@ -1,6 +1,6 @@
 import six
 from math import *
-from src.image import EscposImage
+from helpers.image import EscposImage
 import logging
 #Configuracion de logging
 log = logging.getLogger('radmin_info')
