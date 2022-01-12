@@ -1,8 +1,7 @@
-import struct
+import six
 from math import *
-from PIL import Image
-import PIL.ImageOps
-import requests, os, logging
+from src.image import EscposImage
+import logging
 #Configuracion de logging
 log = logging.getLogger('radmin_info')
 console = logging.StreamHandler()
@@ -100,31 +99,6 @@ class escGenerator:
         comandos = { '0': b'\x1b\x42\x00\x02', '1': b'\x1b\x42\x01\x02', '2': b'\x1b\x42\x02\x02', '3': b'\x1b\x42\x03\x02', '4': b'\x1b\x42\x04\x02', '5': b'\x1b\x42\x05\x02', '6': b'\x1b\x42\x06\x02', '7': b'\x1b\x42\x07\x02', '8': b'\x1b\x42\x08\x02', '9': b'\x1b\x42\x09\x02' }
         comando = comandos[str(rep)]
         self.commands.append(comando)
-
-    def print_image(self, route_image, image_size):
-            try:
-                im = Image.open(f'{route_image}')
-            except Exception as e:
-                im = None
-
-            if im is not None:
-                ## RESIZE ANY IMAGE ALEX
-                im = image_white(im)
-                ## END RESIZE ANY IMAGE ALEX
-                basewidth = self.max_line_len * 9
-                wpercent  = (basewidth / float(im.size[0]))
-                hsize = int((float(im.size[1]) * float(wpercent)))
-                ############################ ALEX
-                im = resize_image(im, image_size, basewidth, hsize) 
-                ############################## ALEX END
-
-                image_data = b''.join((
-                    b'\x1d\x76\x30\x00',
-                    struct.pack('2B', int(im.size[0] / 8 % 256), int(im.size[0] / 8 / 256)),
-                    struct.pack('2B', int(im.size[1] % 256), int(im.size[1] / 256)),
-                    im.tobytes(),
-                ))
-                self.commands.append(image_data)
 
     def test(self):
         try:
@@ -305,6 +279,96 @@ class escGenerator:
         # self.reset()
         self.print_string('ABCD')
         #self.cut_paper()
+
+    @staticmethod
+    def _int_low_high(inp_number, out_bytes):
+        """ Generate multiple bytes for a number: In lower and higher parts, or more parts as needed.
+
+        :param inp_number: Input number
+        :param out_bytes: The number of bytes to output (1 - 4).
+        """
+        max_input = (256 << (out_bytes * 8) - 1)
+        if not 1 <= out_bytes <= 4:
+            raise ValueError("Can only output 1-4 bytes")
+        if not 0 <= inp_number <= max_input:
+            raise ValueError("Number too large. Can only output up to {0} in {1} bytes".format(max_input, out_bytes))
+        outp = b''
+        for _ in range(0, out_bytes):
+            outp += six.int2byte(inp_number % 256)
+            inp_number //= 256
+        return outp
+    
+    def print_image(self, image_size, img_source, high_density_vertical=True, high_density_horizontal=True, impl="bitImageRaster", fragment_height=3, center=True):
+
+        im = EscposImage(img_source, image_size, self.max_line_len)
+
+        try:
+            if image_size == 'sm':
+                max_width = int((self.max_line_len * 11) * 0.5) 
+            if image_size == 'md':
+                max_width = int((self.max_line_len * 11) * 0.75) 
+            if image_size == 'lg':
+                max_width = (self.max_line_len * 11)
+            if center:
+                im.center(max_width)
+        except KeyError:
+            # If the printer's pixel width is not known, print anyways...
+            pass
+        except ValueError:
+            # If the max_width cannot be converted to an int, print anyways...
+            pass
+        GS  = b'\x1d'
+        ESC = b'\x1b'
+        if im.height > fragment_height:
+            fragments = im.split(fragment_height)
+            for fragment in fragments:
+                self.print_image(image_size, fragment,
+                        high_density_vertical=high_density_vertical,
+                        high_density_horizontal=high_density_horizontal,
+                        impl=impl,
+                        fragment_height=fragment_height)
+            return
+
+        if impl == "bitImageRaster":
+            # GS v 0, raster format bit image
+            density_byte = (0 if high_density_horizontal else 1) + (0 if high_density_vertical else 2)
+            header = GS + b"v0" + six.int2byte(density_byte) + self._int_low_high(im.width_bytes, 2) +\
+                self._int_low_high(im.height, 2)
+            self.commands.append(header + im.to_raster_format())
+
+        if impl == "graphics":
+            # GS ( L raster format graphics
+            img_header = self._int_low_high(im.width, 2) + self._int_low_high(im.height, 2)
+            tone = b'0'
+            colors = b'1'
+            ym = six.int2byte(1 if high_density_vertical else 2)
+            xm = six.int2byte(1 if high_density_horizontal else 2)
+            header = tone + xm + ym + colors + img_header
+            raster_data = im.to_raster_format()
+            self._image_send_graphics_data(b'0', b'p', header + raster_data)
+            self._image_send_graphics_data(b'0', b'2', b'')
+
+        if impl == "bitImageColumn":
+            # ESC *, column format bit image
+            density_byte = (1 if high_density_horizontal else 0) + (32 if high_density_vertical else 0)
+            header = ESC + b"*" + six.int2byte(density_byte) + self._int_low_high(im.width, 2)
+            outp = [ESC + b"3" + six.int2byte(16)]  # Adjust line-feed size
+            for blob in im.to_column_format(high_density_vertical):
+                outp.append(header + blob + b"\n")
+            outp.append(ESC + b"2")  # Reset line-feed size
+            self.commands.append(b''.join(outp))
+
+    def _image_send_graphics_data(self, m, fn, data):
+        GS  = b'\x1d'
+        """
+        Wrapper for GS ( L, to calculate and send correct data length.
+
+        :param m: Modifier//variant for function. Usually '0'
+        :param fn: Function number to use, as byte
+        :param data: Data to send
+        """
+        header = self._int_low_high(len(data) + 2, 2)
+        self.commands.append(GS + b'(L' + header + m + fn + data)
         
 alignments = {
     "center": "^",
@@ -490,63 +554,3 @@ options = {
         }
     ]
 }
-
-def image_white(im):
-    im = im.convert("RGBA")
-    datas = im.getdata()
-    newData = []
-    for item in datas:
-        if item[3] == 0:
-            newData.append((255, 255, 255, 255))
-        else:
-            newData.append(item)
-
-    im.putdata(newData)
-
-    basewidth = 480
-    wpercent = (basewidth / float(im.size[0]))
-    hsize = int((float(im.size[1]) * float(wpercent)))
-    im = im.resize((basewidth, hsize), Image.ANTIALIAS)
-    return im
-
-def resize_image(im, image_size, basewidth, hsize):
-    intSize = 0
-    if image_size == 'sm':
-        intSize = 200
-    if image_size == 'md':
-        intSize = 100
-    if image_size == 'lg':
-        intSize = 50
-
-    if im.size[1] > basewidth and im.size[0] < basewidth:
-        if image_size == 'sm':
-            intSize = 600
-        if image_size == 'md':
-            intSize = 300
-        if image_size == 'lg':
-            intSize = 50
-    if im.size[1] > basewidth or im.size[0] > basewidth:
-        if image_size == 'sm':
-            intSize = 600
-        if image_size == 'md':
-            intSize = 300
-        if image_size == 'lg':
-            intSize = 50
-            
-    MaxHeight = intSize
-    porcentajeHeight =  float(22 * MaxHeight / hsize)
-    basewidth = int(basewidth - (basewidth * (porcentajeHeight * 0.01)))
-
-    hsize = int(hsize - (hsize * (porcentajeHeight * 0.01)))
-
-    im = im.resize((basewidth, hsize), Image.ANTIALIAS) # Aqui se pierde la calidad
-
-    if im.size[0] % 8:
-        im2 = Image.new('1', (im.size[0] + 8 - im.size[0] % 8,im.size[1]), 'white')
-        im2.paste(im,(0, 0))
-        im = im2
-
-    im = PIL.ImageOps.invert(im.convert('L'))
-    im = im.convert('1')
-
-    return im
