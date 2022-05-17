@@ -250,7 +250,7 @@ class escGenerator:
         if options['border_bottom']:
             bottomBorder = self.set_table_border("bottom", columns, style, options['separate_cols'], options['border_left'], options['border_right'])
             self.commands.append(bottomBorder)
-            self.lf()
+            #self.lf()
 
 
         # items
