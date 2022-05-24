@@ -124,7 +124,7 @@ class EscposImage(object):
             base_percent *= 0.5
         if image_size == 'md':
             base_percent *= 0.75
-        if image_size == 'lg' or image_size == 'md':
+        if image_size == 'lg':
             dimensions = (math.ceil(im.size[0] * base_percent), math.ceil(im.size[1] * base_percent))
         else:
             dimensions = (int(im.size[0] * base_percent), int(im.size[1] * base_percent))
