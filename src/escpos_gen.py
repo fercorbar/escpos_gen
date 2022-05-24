@@ -59,6 +59,9 @@ class escGenerator:
     def text_tittle(self):
         self.commands.append(b'\x1b\x21\x38')
 
+    def text_double(self):
+        self.commands.append(b'\x1b\x21\x60')
+
     def text_total(self):
         self.commands.append(b'\x1b\x21\x30')
 
