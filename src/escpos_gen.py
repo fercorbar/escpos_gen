@@ -60,7 +60,7 @@ class escGenerator:
         self.commands.append(b'\x1b\x21\x38')
 
     def text_double(self):
-        self.commands.append(b'\x1b\x21\x18')
+        self.commands.append(b'\x1b\x21\x20')
 
     def text_total(self):
         self.commands.append(b'\x1b\x21\x30')
