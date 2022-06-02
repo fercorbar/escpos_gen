@@ -135,7 +135,7 @@ class escGenerator:
             for col in range(len(columns)):
                 textComplete = data[col]
                 # text = textComplete[]
-                width = columns[col]['width']
+                width = columns[col]['width'] * 2
                 text = textComplete[(l*width):((l*width) + width)]
                 if 'data_fill_car' in columns[col] and not isHeader:
                     if rowLines[col] == 1:
@@ -181,6 +181,8 @@ class escGenerator:
             self.text_left()
         elif options['table_align'] == "right":
             self.text_right()
+        if 'text_double' in options and options['text_double']:
+            self.text_double()
 
         style = options['style']
 
@@ -190,9 +192,14 @@ class escGenerator:
             if columns[i]['type'] == "data":
                 col_max_len = 0
                 for datum in data:
-                    if len(str(datum[i])) > col_max_len: col_max_len = len(str(datum[i]))
-                if len(str(columns[i]['text'])) > col_max_len: col_max_len = len(str(columns[i]['text']))
-                columns[i]['width'] = col_max_len
+                    if 'text_double' in options and options['text_double']:
+                        if len(str(datum[i])) > col_max_len: col_max_len = ceil(len(str(datum[i]))/2)
+                        if len(str(columns[i]['text'])) > col_max_len: col_max_len = ceil(len(str(columns[i]['text'])) / 2)
+                        columns[i]['width'] = col_max_len
+                    else:
+                        if len(str(datum[i])) > col_max_len: col_max_len = len(str(datum[i]))
+                        if len(str(columns[i]['text'])) > col_max_len: col_max_len = len(str(columns[i]['text']))
+                        columns[i]['width'] = col_max_len
 
         # set fill columns width
         colsTotalWith = 0
@@ -202,7 +209,10 @@ class escGenerator:
                 fillColumnsCount += 1
             else:
                 colsTotalWith += int(column['width'])
-        colFreeWidth = self.max_line_len - colsTotalWith
+        if 'text_double' in options and options['text_double']:
+            colFreeWidth = ceil(self.max_line_len/2) - colsTotalWith
+        else:
+            colFreeWidth = self.max_line_len - colsTotalWith
         if fillColumnsCount == 0:
             fillColsWith = 0
         else:
