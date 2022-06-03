@@ -118,7 +118,7 @@ class escGenerator:
             return False, str(e)
         return True
 
-    def set_table_row(self, isHeader, data, columns, style = "blank-line", separate = True, border_left = False, border_right = False, ):
+    def set_table_row(self, isHeader, data, columns, style = "blank-line", separate = True, border_left = False, border_right = False, text_double = False):
         result = b''
         v = 'V'
         alignKey = 'header_align' if isHeader else 'data_align'
@@ -135,7 +135,11 @@ class escGenerator:
             for col in range(len(columns)):
                 textComplete = data[col]
                 # text = textComplete[]
-                width = columns[col]['width']
+                if text_double:
+                    width = columns[col]['width'] * 2
+                else:
+                    width = columns[col]['width']
+
                 text = textComplete[(l*width):((l*width) + width)]
                 if 'data_fill_car' in columns[col] and not isHeader:
                     if rowLines[col] == 1:
@@ -175,13 +179,15 @@ class escGenerator:
         self.commands.append(b'\x1b\x74\x02')
         self.commands.append(b'\x1b\x33\x00')
 
+        text_double = 'text_double' in options and options['text_double']
+
         if options['table_align'] == "center":
             self.text_center()
         elif options['table_align'] == "left":
             self.text_left()
         elif options['table_align'] == "right":
             self.text_right()
-        if 'text_double' in options and options['text_double']:
+        if text_double:
             self.text_double()
 
         style = options['style']
@@ -192,14 +198,18 @@ class escGenerator:
             if columns[i]['type'] == "data":
                 col_max_len = 0
                 for datum in data:
-                    if 'text_double' in options and options['text_double']:
-                        if len(str(datum[i])) > col_max_len: col_max_len = ceil(len(str(datum[i]))/2)
-                        if len(str(columns[i]['text'])) > col_max_len: col_max_len = ceil(len(str(columns[i]['text'])) / 2)
-                        columns[i]['width'] = col_max_len
+                    if len(str(datum[i])) > col_max_len: 
+                        if text_double:
+                            col_max_len = ceil(len(str(datum[i]))/2)
+                        else:
+                            col_max_len = len(str(datum[i]))
+
+                if len(str(columns[i]['text'])) > col_max_len:
+                    if text_double:
+                        col_max_len = ceil(len(str(columns[i]['text'])) / 2)
                     else:
-                        if len(str(datum[i])) > col_max_len: col_max_len = len(str(datum[i]))
-                        if len(str(columns[i]['text'])) > col_max_len: col_max_len = len(str(columns[i]['text']))
-                        columns[i]['width'] = col_max_len
+                        col_max_len = len(str(columns[i]['text']))
+                columns[i]['width'] = col_max_len
 
         # set fill columns width
         colsTotalWith = 0
@@ -209,7 +219,7 @@ class escGenerator:
                 fillColumnsCount += 1
             else:
                 colsTotalWith += int(column['width'])
-        if 'text_double' in options and options['text_double']:
+        if text_double:
             colFreeWidth = ceil(self.max_line_len/2) - colsTotalWith
         else:
             colFreeWidth = self.max_line_len - colsTotalWith
@@ -236,7 +246,7 @@ class escGenerator:
             headers=[]
             for column in columns:
                 headers.append(column['text'])
-            col_headers = self.set_table_row(True , headers, columns, style, options['separate_cols'], options['border_left'], options['border_right'])
+            col_headers = self.set_table_row(True , headers, columns, style, options['separate_cols'], options['border_left'], options['border_right'], text_double)
             self.commands.append(col_headers)
             if options['separate_header']:
                 if options['border_top']:
@@ -251,7 +261,7 @@ class escGenerator:
         if options['show_data']:
             # print(f'columns----------------{columns}')
             for i in range(len(data)):
-                line = self.set_table_row(False, data[i], columns, style, options['separate_cols'], options['border_left'], options['border_right'])
+                line = self.set_table_row(False, data[i], columns, style, options['separate_cols'], options['border_left'], options['border_right'], text_double)
                 self.commands.append(line)
                 if options['separate_rows']:
                     if not i == (len(data)-1):
