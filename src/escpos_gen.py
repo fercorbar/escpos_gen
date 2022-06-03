@@ -135,7 +135,7 @@ class escGenerator:
             for col in range(len(columns)):
                 textComplete = data[col]
                 # text = textComplete[]
-                width = columns[col]['width'] * 2
+                width = columns[col]['width']
                 text = textComplete[(l*width):((l*width) + width)]
                 if 'data_fill_car' in columns[col] and not isHeader:
                     if rowLines[col] == 1:
