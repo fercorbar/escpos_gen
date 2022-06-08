@@ -2,7 +2,7 @@ import math
 from PIL import Image, ImageOps
 
 class EscposImage(object):
-    def __init__(self, img_source, image_size, max_len_line):
+    def __init__(self, img_source, image_size, max_line_len):
         """
         Load in an image
 
@@ -15,13 +15,9 @@ class EscposImage(object):
         else:
             img_original = Image.open(img_source)
 
-            maxwidth = max_len_line * 11
-            wpercent  = (maxwidth / float(img_original.size[0]))
-            maxheight = math.ceil((float(img_original.size[1]) * float(wpercent)))
-            width_percent = maxwidth / img_original.size[0]
-            height_percent = maxheight / img_original.size[1]
-
-            img_original = self.resize_image(img_original, image_size, width_percent, height_percent)
+            width, height = img_original.size
+            
+            img_original = self.resize_image(img_original, width, height, image_size, max_line_len)
 
         self.img_original = img_original
         # Convert to white RGB background, paste over white background
@@ -117,17 +113,23 @@ class EscposImage(object):
 
         self._im = new_im
 
-    def resize_image(self, im, image_size, width_percent, height_percent):
-        base_percent = min(width_percent, height_percent)
+    def resize_image(self, im, width, height, image_size, max_line_len):
+        if width == height:
+            img_factor = 11
+        # Only works with 200x100 or 400x200
+        elif width == (height*2):
+            img_factor = 10
+        else:
+            img_factor = 9
 
         if image_size == 'sm':
-            base_percent *= 0.5
+            max_width = int((max_line_len * img_factor) * 0.5) 
         if image_size == 'md':
-            base_percent *= 0.75
+            max_width = int((max_line_len * img_factor) * 0.75)
         if image_size == 'lg':
-            dimensions = (math.ceil(im.size[0] * base_percent), math.ceil(im.size[1] * base_percent))
-        else:
-            dimensions = (int(im.size[0] * base_percent), int(im.size[1] * base_percent))
-            
+            max_width = max_line_len * img_factor
+        
+        dimensions = (int(max_width), int(height * (max_width / width)))
+
         im = im.resize(dimensions, Image.ANTIALIAS)
         return im

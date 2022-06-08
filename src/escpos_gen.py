@@ -8,6 +8,9 @@ console = logging.StreamHandler()
 log.addHandler(console)
 log.setLevel(logging.INFO)
 
+exists_img_factor = False
+img_factor = 11
+
 class escGenerator:
 
     def __init__(self, paper_size="80mm"):
@@ -322,16 +325,28 @@ class escGenerator:
         return outp
     
     def print_image(self, image_size, img_source, high_density_vertical=True, high_density_horizontal=True, impl="bitImageRaster", fragment_height=3, center=True):
+        global exists_img_factor
+        global img_factor
 
         im = EscposImage(img_source, image_size, self.max_line_len)
-
+        width = im.width
+        height = im.height
+        if exists_img_factor is False:
+            if width == height:
+                img_factor = 11
+            # Only works with 200x100 or 400x200
+            elif width == (height*2):
+                img_factor = 10
+            else:
+                img_factor = 9
+            exists_img_factor = True
         try:
             if image_size == 'sm':
-                max_width = int((self.max_line_len * 11) * 0.5) 
+                max_width = int((self.max_line_len * img_factor) * 0.5) 
             if image_size == 'md':
-                max_width = int((self.max_line_len * 11) * 0.75) 
+                max_width = int((self.max_line_len * img_factor) * 0.75) 
             if image_size == 'lg':
-                max_width = (self.max_line_len * 11)
+                max_width = (self.max_line_len * img_factor)
             if center:
                 im.center(max_width)
         except KeyError:
@@ -350,6 +365,7 @@ class escGenerator:
                         high_density_horizontal=high_density_horizontal,
                         impl=impl,
                         fragment_height=fragment_height)
+            exists_img_factor = False
             return
 
         if impl == "bitImageRaster":
